@@ -1,12 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-
-#define LOCALHOST "127.0.0.1"
-#define MAX_CHARS 256
+#include "socket.h"
 
 int new_socket (int port){
 	int my_sock;
@@ -95,11 +87,11 @@ int try_connection (int my_sock, char * ip_addr, int port){
 	return retcode;
 }
 
-int accept_connection(int my_sock, struct sockaddr_in* their_sock, socklen_t* their_sock_len){
+int accept_connection(int my_sock, struct sockaddr_in* their_addr, socklen_t* their_addr_len){
 	int connection_socket;
-	*their_sock_len = sizeof(*their_sock);
+	*their_addr_len = sizeof(*their_addr);
 
-	connection_socket = accept(my_sock, (struct sockaddr*) their_sock, their_sock_len);
+	connection_socket = accept(my_sock, (struct sockaddr*) their_addr, their_addr_len);
 	if (connection_socket == -1){
 		perror("Errore funzione accept()");
 		return -1;
@@ -108,12 +100,13 @@ int accept_connection(int my_sock, struct sockaddr_in* their_sock, socklen_t* th
 	return connection_socket;
 }
 
-int write_message (int my_sock, char * buffer, int len){
+int write_message (int my_sock, char * buffer){
 	int retcode;
+	int len = sizeof(buffer);
 	retcode = write(my_sock,buffer,len);
 	if (retcode != len){
-		printf("Errore funzione write():non tutti i dati non sono stati inviati");
-		return -1;
+		printf("Errore funzione write():non tutti i dati non sono stati inviati: %i", retcode-len);
+		return retcode - len;
 	}
 	return retcode;
 }
@@ -124,7 +117,7 @@ char* read_message(int connection_socket){
 
 	buffer = (char*) malloc(sizeof(char)*MAX_CHARS);
 
-	n_chars = read(connection_socket, buffer, MAX_CHARS);
+	n_chars = read(connection_socket, buffer, MAX_CHARS-1);
 	if (n_chars == -1){
 		perror("Errore funzione read()");
 		return NULL;
@@ -132,37 +125,4 @@ char* read_message(int connection_socket){
 
 	buffer[n_chars] = '\0';
 	return buffer;
-}
-
-int main(){
-	int my_sock, connection_socket, their_port;
-	char *their_addr, *message;
-
-	my_sock = new_socket_listen(3002,1);
-
-	struct sockaddr_in their_sock;
-	socklen_t their_sock_len;
-	their_sock_len = sizeof(their_sock);
-
-	while(1){
-		connection_socket = accept_connection(my_sock, &their_sock, &their_sock_len);
-		if (connection_socket == -1){
-			printf("Errore nella funzione accept_connection()\n");
-			continue;
-		}
-		their_addr = inet_ntoa(their_sock.sin_addr);
-		their_port = their_sock.sin_port;
-		printf("Connesso con @%s:%d\n",their_addr,their_port);
-		message = read_message(connection_socket);
-		if (message == NULL){
-			printf("Errore nella funzione read_message()\n");
-			continue;
-		}
-		printf(">> %s\n",message);
-		if (strcmp("exit",message) == 0)
-			break;
-	}
-
-	printf("Chiusura del server.\n");
-	return 0;
 }
