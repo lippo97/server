@@ -126,3 +126,7 @@ char* read_message(int connection_socket){
 	buffer[n_chars] = '\0';
 	return buffer;
 }
+
+int send_txt_file(int my_sock, FILE *f){
+	
+}
